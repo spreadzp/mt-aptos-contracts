@@ -1,0 +1,172 @@
+{
+    "address": "0xd80f67b134fa1bead50678184c4550a59f90349ed004184f995916cd1dd93a97",
+    "name": "nft",
+    "friends": [],
+    "exposed_functions": [
+        {
+            "name": "exists_metadata_map",
+            "visibility": "public",
+            "is_entry": false,
+            "is_view": false,
+            "generic_type_params": [],
+            "params": [
+                "address"
+            ],
+            "return": [
+                "bool"
+            ]
+        },
+        {
+            "name": "get_creator",
+            "visibility": "public",
+            "is_entry": false,
+            "is_view": false,
+            "generic_type_params": [],
+            "params": [
+                "address"
+            ],
+            "return": [
+                "address"
+            ]
+        },
+        {
+            "name": "get_metadata",
+            "visibility": "public",
+            "is_entry": false,
+            "is_view": false,
+            "generic_type_params": [],
+            "params": [
+                "address"
+            ],
+            "return": [
+                "0x1::string::String"
+            ]
+        },
+        {
+            "name": "get_nft_id_by_hash",
+            "visibility": "public",
+            "is_entry": false,
+            "is_view": false,
+            "generic_type_params": [],
+            "params": [
+                "address",
+                "0x1::string::String"
+            ],
+            "return": [
+                "address"
+            ]
+        },
+        {
+            "name": "initialize_nft",
+            "visibility": "public",
+            "is_entry": false,
+            "is_view": false,
+            "generic_type_params": [],
+            "params": [
+                "&signer",
+                "0x1::string::String"
+            ],
+            "return": []
+        },
+        {
+            "name": "transfer",
+            "visibility": "public",
+            "is_entry": true,
+            "is_view": false,
+            "generic_type_params": [],
+            "params": [
+                "&signer",
+                "address",
+                "address"
+            ],
+            "return": []
+        },
+        {
+            "name": "verify_nft_ownership",
+            "visibility": "public",
+            "is_entry": false,
+            "is_view": false,
+            "generic_type_params": [],
+            "params": [
+                "address",
+                "address"
+            ],
+            "return": []
+        }
+    ],
+    "structs": [
+        {
+            "name": "MetadataMap",
+            "is_native": false,
+            "abilities": [
+                "key"
+            ],
+            "generic_type_params": [],
+            "fields": [
+                {
+                    "name": "map",
+                    "type": "0x1::table::Table<0x1::string::String, address>"
+                }
+            ]
+        },
+        {
+            "name": "NFT",
+            "is_native": false,
+            "abilities": [
+                "key"
+            ],
+            "generic_type_params": [],
+            "fields": [
+                {
+                    "name": "creator",
+                    "type": "address"
+                },
+                {
+                    "name": "metadata",
+                    "type": "0x1::string::String"
+                },
+                {
+                    "name": "events",
+                    "type": "0xd80f67b134fa1bead50678184c4550a59f90349ed004184f995916cd1dd93a97::nft::NFTEventHandlers"
+                }
+            ]
+        },
+        {
+            "name": "NFTEventHandlers",
+            "is_native": false,
+            "abilities": [
+                "store"
+            ],
+            "generic_type_params": [],
+            "fields": [
+                {
+                    "name": "transfer_events",
+                    "type": "0x1::event::EventHandle<0xd80f67b134fa1bead50678184c4550a59f90349ed004184f995916cd1dd93a97::nft::TransferEvent>"
+                }
+            ]
+        },
+        {
+            "name": "TransferEvent",
+            "is_native": false,
+            "abilities": [
+                "drop",
+                "store"
+            ],
+            "generic_type_params": [],
+            "fields": [
+                {
+                    "name": "from",
+                    "type": "address"
+                },
+                {
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "name": "token_id",
+                    "type": "address"
+                }
+            ]
+        }
+    ]
+}
