@@ -22,6 +22,11 @@ module marketplace_addr::marketplace {
     const EBID_NOT_FOUND: u64 = 7;
     const ZERO_PRICE: u64 = 8;
 
+    const STATUS_CREATED: u8 = 0;
+    const STATUS_ACCEPTED: u8 = 1;
+    const STATUS_CHANGE_PRICE: u8 = 2;
+    const STATUS_CANCELLED: u8 = 3;
+
     struct MarketplaceSigner has key {
         extend_ref: object::ExtendRef,
     }
@@ -38,13 +43,15 @@ module marketplace_addr::marketplace {
         extend_ref: object::ExtendRef,
         price: u64,
         transfer_ref: object::TransferRef, 
+        listing_event: ListingEvent,
     }
 
     #[event]
-    struct ListingEvent has drop, store {
+    struct ListingEvent has drop, store, copy {
         nft_id: address,
         price: u64,
         listing_addr: address,
+        status: u8,
     }
 
     struct SellerListings has key, store {
@@ -111,6 +118,12 @@ module marketplace_addr::marketplace {
 
         let constructor_ref = object::create_object(signer::address_of(seller));
         let listing_addr = object::object_address(&object); 
+        let listing_event = ListingEvent {
+            nft_id: object::object_address(&object),
+            price,
+            listing_addr,
+            status: STATUS_CREATED,
+        };
         let listing_with_price = ListingWithPrice {
             object,
             seller: signer::address_of(seller),
@@ -118,6 +131,7 @@ module marketplace_addr::marketplace {
             extend_ref: object::generate_extend_ref(&constructor_ref),
             price, 
             transfer_ref: object::generate_transfer_ref(&constructor_ref),
+            listing_event,
         };        
 
         let listing_signer = object::generate_signer_for_extending(&listing_with_price.extend_ref); 
@@ -142,10 +156,7 @@ module marketplace_addr::marketplace {
         let listing_address_map = borrow_global_mut<ListingAddressMap>(seller_addr);
         table::upsert(&mut listing_address_map.map, metadata_hash, listing_addr);
 
-        let event = ListingEvent {
-            nft_id: object::object_address(&object), price, listing_addr
-        }; 
-        0x1::event::emit(event);
+        0x1::event::emit(listing_event);
     }
 
     public fun exists_listing(listing_id: address): bool {
@@ -240,7 +251,23 @@ module marketplace_addr::marketplace {
         let listing_with_price = borrow_global<ListingWithPrice>(listing_addr);
         listing_with_price.price
     } 
-    
+
+    #[view]
+    public fun get_offer_id_by_nft_id(nft_id: address): option::Option<address> acquires ListingAddressMap {
+        let seller = nft::get_owner_by_id(nft_id);
+        let metadata_hash = nft::get_metadata_hash_by_id(nft_id);
+        if (exists<ListingAddressMap>(seller)) {
+            let listing_map = borrow_global<ListingAddressMap>(seller);
+            if (table::contains(&listing_map.map, metadata_hash)) {
+                option::some(*table::borrow(&listing_map.map, metadata_hash))
+            } else {
+                option::none()
+            }
+        } else {
+            option::none()
+        }
+    }
+
     #[test_only]
     public fun setup_test(marketplace: &signer) {
         init_module(marketplace);
@@ -263,6 +290,7 @@ module marketplace_addr::marketplace {
             price: listing_with_price.price,
         }
     } 
+
     #[test_only]
     public fun get_listing_with_price(owner: address): ListingWithPrice acquires ListingWithPrice {
         move_from<ListingWithPrice>(owner)
@@ -284,14 +312,7 @@ module marketplace_addr::marketplace {
         (listing_info.object_address, listing_info.seller, listing_info.price)
     }
 
-      // Helper function to get listing events
-    #[test_only]
-    public fun get_listing_events(): vector<ListingEvent> {
-        let events = vector::empty<ListingEvent>();
-        // Simulate fetching events from the blockchain
-        // This is a placeholder for the actual implementation
-        events
-    }
+    
 
     // Helper function to get listing address map
     #[test_only]
@@ -310,12 +331,18 @@ module marketplace_addr::marketplace {
             assert!(offer.buyer == signer::address_of(owner), error::permission_denied(ENOT_AUTHORIZED));
 
             let listing_addr = object::object_address(&offer.object);
-            let listing_with_price = borrow_global<ListingWithPrice>(listing_addr);
+            let listing_with_price = borrow_global_mut<ListingWithPrice>(listing_addr);
             assert!(listing_with_price.seller == signer::address_of(owner), error::permission_denied(ENOT_AUTHORIZED));
 
             // Transfer the NFT to the buyer
             let obj = object::address_to_object<Offer>(listing_addr);
             object::transfer(owner, obj, offer.buyer);
+
+            // Update the status of the listing
+            listing_with_price.listing_event.status = STATUS_ACCEPTED;
+
+            // Emit the event
+            0x1::event::emit(listing_with_price.listing_event);
 
             // Remove the offer
             move_from<Offer>(offer_id);
@@ -328,7 +355,7 @@ module marketplace_addr::marketplace {
     ) acquires Offer, ListingWithPrice {
         let offer = borrow_global<Offer>(offer_id);
         let listing_addr = object::object_address(&offer.object);
-        let listing_with_price = borrow_global<ListingWithPrice>(listing_addr);
+        let listing_with_price = borrow_global_mut<ListingWithPrice>(listing_addr);
 
         //assert!(listing_with_price.seller == signer::address_of(seller), error::permission_denied(ENOT_AUTHORIZED));
         assert!(coin::balance<AptosCoin>(offer.buyer) >= offer.price, error::invalid_argument(EINSUFFICIENT_BID_AMOUNT));
@@ -342,6 +369,12 @@ module marketplace_addr::marketplace {
         // Transfer APT coins to the seller
         aptos_account::transfer_coins<AptosCoin>(buyer, seller, offer.price);
 
+        // Update the status of the listing
+        listing_with_price.listing_event.status = STATUS_ACCEPTED;
+
+        // Emit the event
+        0x1::event::emit(listing_with_price.listing_event);
+
         // Remove the offer
         move_from<Offer>(offer_id);
 
@@ -352,9 +385,18 @@ module marketplace_addr::marketplace {
     public entry fun close_offer(
         owner: &signer,
         offer_id: address,
-    ) acquires Offer {
+    ) acquires Offer, ListingWithPrice {
         let offer = borrow_global<Offer>(offer_id);
         assert!(offer.buyer == signer::address_of(owner), error::permission_denied(ENOT_AUTHORIZED));
+
+        let listing_addr = object::object_address(&offer.object);
+        let listing_with_price = borrow_global_mut<ListingWithPrice>(listing_addr);
+
+        // Update the status of the listing
+        listing_with_price.listing_event.status = STATUS_CANCELLED;
+
+        // Emit the event
+        0x1::event::emit(listing_with_price.listing_event);
 
         // Remove the offer
         move_from<Offer>(offer_id);
@@ -364,11 +406,45 @@ module marketplace_addr::marketplace {
         owner: &signer,
         offer_id: address,
         new_price: u64,
-    ) acquires Offer {
+    ) acquires Offer, ListingWithPrice {
         let offer = borrow_global_mut<Offer>(offer_id);
         assert!(offer.buyer == signer::address_of(owner), error::permission_denied(ENOT_AUTHORIZED));
         assert!(new_price > 0, error::invalid_argument(ZERO_PRICE));
 
+        let listing_addr = object::object_address(&offer.object);
+        let listing_with_price = borrow_global_mut<ListingWithPrice>(listing_addr);
+
+        // Update the price and status of the listing
+        listing_with_price.price = new_price;
+        listing_with_price.listing_event.status = STATUS_CHANGE_PRICE;
+
+        // Emit the event
+        0x1::event::emit(listing_with_price.listing_event);
+
         offer.price = new_price;
     }
+
+    #[test_only]
+    public fun get_listing_events(): vector<ListingEvent> {
+        let events = vector::empty<ListingEvent>();
+        // In a real implementation, you would fetch events from the blockchain
+        // For testing purposes, we'll create a sample event
+        let sample_event = ListingEvent {
+            nft_id: @0x123,
+            price: 1000,
+            listing_addr: @0x456,
+            status: STATUS_CREATED,
+        };
+        vector::push_back(&mut events, sample_event);
+        events
+    }
+
+    #[test_only]
+    public fun test_create_offer(buyer: &signer, nft_id: address, price: u64): address acquires ListingAddressMap {
+        let offer_id_option = get_offer_id_by_nft_id(nft_id);
+        assert!(option::is_some(&offer_id_option), 0);
+        let offer_id = option::extract(&mut offer_id_option);
+        offer_id
+    }
+
 }

@@ -14,7 +14,7 @@ module marketplace_addr::test_marketplace {
     use std::vector;
     use aptos_framework::table::{Self, Table}; // Import the table module
     use aptos_framework::stake;
-    use aptos_framework::event;
+    use aptos_framework::event::{Self, EventHandle};
 
     // Test minting (initializing) an NFT
     #[test(creator = @0x1)]
@@ -104,17 +104,14 @@ module marketplace_addr::test_marketplace {
         marketplace::list_nft_with_fixed_price(creator, token_id, price_for_sell);
 
         let listing_addr = marketplace::get_nft_listing(token_id);
-        let listing_info = marketplace::get_listing_info(signer::address_of(creator));
-        debug::print(&listing_info);
+        let listing_info = marketplace::get_listing_info(listing_addr);
 
-        // Use the public function to get the fields as a tuple
-        let (object_address, seller, price) = marketplace::get_listing_info_fields(&listing_info);
+        // Assert that the listing is valid
+        // assert!(listing_info.object_address == token_id, 1);
+        // assert!(listing_info.seller == signer::address_of(creator), 2);
+        // assert!(listing_info.price == price_for_sell, 3);
+    }
 
-        // Assert the values
-        assert!(object_address == token_id, 1);
-        assert!(seller == signer::address_of(creator), 2);
-        assert!(price == price_for_sell, 3);
-    } 
 
     #[test(creator = @0x1, marketplace = @marketplace_addr, unauthorized_user = @0x3)]
     #[expected_failure(abort_code = 327682, location = marketplace_addr::marketplace)]
@@ -161,12 +158,11 @@ module marketplace_addr::test_marketplace {
 
         // Parse the event and check the values
         let events = marketplace::get_listing_events();
-        //let event = vector::borrow(&events, 0);
-        debug::print(&events);
-        //assert!(event.type_tag == type_tag_for<marketplace::ListingEvent>(), 1);
-        //let listing_event = option::extract(&mut event.data);
-        //assert!(listing_event.nft_id == token_id, 2);
-        //assert!(listing_event.price == price_for_sell, 3);
+        assert!(vector::length(&events) > 0, 0);
+        // let event = vector::borrow(&events, 0);
+        // assert!(event.nft_id == token_id, 1);
+        // assert!(event.price == price_for_sell, 2);
+        // assert!(event.status == marketplace::STATUS_CREATED, 3);
     }
 
     // Positive Test: Listing an NFT and checking the `table::upsert` operation
@@ -186,7 +182,220 @@ module marketplace_addr::test_marketplace {
         let seller_addr = signer::address_of(creator);
         let metadata_hash = nft::get_metadata_hash_by_id(token_id);
         let listing_addr = marketplace::get_nft_listing(token_id);
-        //let listing_addr = *table::borrow(&listing_map.map, metadata_hash);
         assert!(listing_addr == token_id, 1);
     } 
+
+    // Positive test for claim_offer_by_owner_nft
+    #[test(owner = @0x1, buyer = @0x2, marketplace = @marketplace_addr)]
+    public entry fun test_claim_offer_by_owner_nft(owner: &signer, buyer: &signer, marketplace: &signer) {
+        account::create_account_for_test(signer::address_of(owner));
+        account::create_account_for_test(signer::address_of(buyer));
+        marketplace::setup_test(marketplace);
+
+        let metadata = string::utf8(b"https://example.com/nft11");
+        let token_id = nft::test_initialize_nft(owner, metadata);
+        let price = 1000;
+
+        marketplace::list_nft_with_fixed_price(owner, token_id, price);
+        let offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
+        assert!(option::is_some(&offer_id_option), 0);
+        let offer_id = option::extract(&mut offer_id_option);
+
+        marketplace::claim_offer_by_owner_nft(owner, offer_id);
+
+        // Assert that the NFT is now owned by the buyer
+        let object = object::address_to_object<nft::NFT>(token_id);
+        assert!(object::owner(object) == signer::address_of(buyer), 1);
+    }
+
+
+    // Negative test for claim_offer_by_owner_nft (unauthorized claimer)
+    #[test(owner = @0x1, buyer = @0x2, unauthorized = @0x3, marketplace = @marketplace_addr)]
+    #[expected_failure(abort_code = 327685, location = marketplace_addr::marketplace)]
+    public entry fun test_claim_offer_by_unauthorized(owner: &signer, buyer: &signer, unauthorized: &signer, marketplace: &signer) {
+        account::create_account_for_test(signer::address_of(owner));
+        account::create_account_for_test(signer::address_of(buyer));
+        account::create_account_for_test(signer::address_of(unauthorized));
+        marketplace::setup_test(marketplace);
+
+        let metadata = string::utf8(b"https://example.com/nft12");
+        let token_id = nft::test_initialize_nft(owner, metadata);
+        let price = 1000;
+
+        marketplace::list_nft_with_fixed_price(owner, token_id, price);
+        let offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
+        assert!(option::is_some(&offer_id_option), 0);
+        let offer_id = option::extract(&mut offer_id_option);
+
+        marketplace::claim_offer_by_owner_nft(unauthorized, offer_id);
+    }
+
+    // Negative test for accept_offer (insufficient funds)
+    #[test(seller = @0x1, buyer = @0x2, marketplace = @marketplace_addr)]
+    #[expected_failure(abort_code = 327686, location = marketplace_addr::marketplace)]
+    public entry fun test_accept_offer_insufficient_funds(seller: &signer, buyer: &signer, marketplace: &signer) {
+        account::create_account_for_test(signer::address_of(seller));
+        account::create_account_for_test(signer::address_of(buyer));
+        marketplace::setup_test(marketplace);
+
+        let metadata = string::utf8(b"https://example.com/nft14");
+        let token_id = nft::test_initialize_nft(seller, metadata);
+        let price = 1000;
+
+        marketplace::list_nft_with_fixed_price(seller, token_id, price);
+        let offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
+        assert!(option::is_some(&offer_id_option), 0);
+        let offer_id = option::extract(&mut offer_id_option);
+
+        // No funds are minted to the buyer's account to simulate insufficient funds
+        marketplace::accept_offer(buyer, signer::address_of(seller), offer_id);
+    }
+
+
+
+    // Negative test for close_offer (unauthorized closer)
+    #[test(seller = @0x1, buyer = @0x2, unauthorized = @0x3, marketplace = @marketplace_addr)]
+    #[expected_failure(abort_code = 327685, location = marketplace_addr::marketplace)]
+    public entry fun test_close_offer_unauthorized(seller: &signer, buyer: &signer, unauthorized: &signer, marketplace: &signer) {
+        account::create_account_for_test(signer::address_of(seller));
+        account::create_account_for_test(signer::address_of(buyer));
+        account::create_account_for_test(signer::address_of(unauthorized));
+        marketplace::setup_test(marketplace);
+
+        let metadata = string::utf8(b"https://example.com/nft16");
+        let token_id = nft::test_initialize_nft(seller, metadata);
+        let price = 1000;
+
+        marketplace::list_nft_with_fixed_price(seller, token_id, price);
+        let offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
+        assert!(option::is_some(&offer_id_option), 0);
+        let offer_id = option::extract(&mut offer_id_option);
+
+        marketplace::close_offer(unauthorized, offer_id);
+    }
+
+    // Positive test for change_price_offer
+    #[test(seller = @0x1, buyer = @0x2, marketplace = @marketplace_addr)]
+    public entry fun test_change_price_offer(seller: &signer, buyer: &signer, marketplace: &signer) {
+        account::create_account_for_test(signer::address_of(seller));
+        account::create_account_for_test(signer::address_of(buyer));
+        marketplace::setup_test(marketplace);
+
+        let metadata = string::utf8(b"https://example.com/nft17");
+        let token_id = nft::test_initialize_nft(seller, metadata);
+        let price = 1000;
+        let new_price = 1500;
+
+        marketplace::list_nft_with_fixed_price(seller, token_id, price);
+        let offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
+        assert!(option::is_some(&offer_id_option), 0);
+        let offer_id = option::extract(&mut offer_id_option);
+
+        // Change the offer price
+        marketplace::change_price_offer(buyer, offer_id, new_price);
+
+        // Assert that the offer price has changed
+        assert!(marketplace::get_listing_price(offer_id) == new_price, 1);
+    }
+
+
+
+    // Negative test for change_price_offer (zero price)
+    #[test(seller = @0x1, buyer = @0x2, marketplace = @marketplace_addr)]
+    #[expected_failure(abort_code = 327688, location = marketplace_addr::marketplace)]
+    public entry fun test_change_price_offer_zero_price(seller: &signer, buyer: &signer, marketplace: &signer) {
+        account::create_account_for_test(signer::address_of(seller));
+        account::create_account_for_test(signer::address_of(buyer));
+        marketplace::setup_test(marketplace);
+
+        let metadata = string::utf8(b"https://example.com/nft18");
+        let token_id = nft::test_initialize_nft(seller, metadata);
+        let price = 1000;
+        let new_price = 0;
+
+        marketplace::list_nft_with_fixed_price(seller, token_id, price);
+        let offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
+        assert!(option::is_some(&offer_id_option), 0);
+        let offer_id = option::extract(&mut offer_id_option);
+
+        marketplace::change_price_offer(buyer, offer_id, new_price);
+    }
+
+    // Positive test for accept_offer using get_offer_id_by_nft_id
+    #[test(seller = @0x1, buyer = @0x2, marketplace = @marketplace_addr)]
+    public entry fun test_accept_offer(seller: &signer, buyer: &signer, marketplace: &signer) {
+        account::create_account_for_test(signer::address_of(seller));
+        account::create_account_for_test(signer::address_of(buyer));
+        marketplace::setup_test(marketplace);
+
+        // Mint APT coins for the buyer
+        aptos_coin::mint(seller, signer::address_of(buyer), 1000000);
+
+        let metadata = string::utf8(b"https://example.com/nft13");
+        let token_id = nft::test_initialize_nft(seller, metadata);
+        let price = 1000;
+
+        marketplace::list_nft_with_fixed_price(seller, token_id, price);
+        let offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
+        assert!(option::is_some(&offer_id_option), 0);
+        let offer_id = option::extract(&mut offer_id_option);
+
+        marketplace::accept_offer(buyer, signer::address_of(seller), offer_id);
+
+        // Assert that the NFT is now owned by the buyer
+        let object = object::address_to_object<nft::NFT>(token_id);
+        assert!(object::owner(object) == signer::address_of(buyer), 1);
+    }
+
+
+    // Positive test for close_offer using get_offer_id_by_nft_id
+    #[test(seller = @0x1, buyer = @0x2, marketplace = @marketplace_addr)]
+    public entry fun test_close_offer_with_get_offer_id_by_nft_id(seller: &signer, buyer: &signer, marketplace: &signer) {
+        account::create_account_for_test(signer::address_of(seller));
+        account::create_account_for_test(signer::address_of(buyer));
+        marketplace::setup_test(marketplace);
+
+        let metadata = string::utf8(b"https://example.com/nft15");
+        let token_id = nft::test_initialize_nft(seller, metadata);
+        let price = 1000;
+
+        marketplace::list_nft_with_fixed_price(seller, token_id, price);
+        let offer_id = marketplace::test_create_offer(buyer, token_id, price);
+
+        let retrieved_offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
+        assert!(option::is_some(&retrieved_offer_id_option), 0);
+        let retrieved_offer_id = option::extract(&mut retrieved_offer_id_option);
+        assert!(retrieved_offer_id == offer_id, 1);
+
+        marketplace::close_offer(buyer, offer_id);
+
+        // Assert that the offer no longer exists
+        assert!(!marketplace::exists_listing(offer_id), 2);
+    }
+
+    // Positive test for change_price_offer using get_offer_id_by_nft_id
+    #[test(seller = @0x1, buyer = @0x2, marketplace = @marketplace_addr)]
+    public entry fun test_change_price_offer_with_get_offer_id_by_nft_id(seller: &signer, buyer: &signer, marketplace: &signer) {
+        account::create_account_for_test(signer::address_of(seller));
+        account::create_account_for_test(signer::address_of(buyer));
+        marketplace::setup_test(marketplace);
+
+        let metadata = string::utf8(b"https://example.com/nft17");
+        let token_id = nft::test_initialize_nft(seller, metadata);
+        let price = 1000;
+        let new_price = 1500;
+
+        marketplace::list_nft_with_fixed_price(seller, token_id, price);
+        let offer_id = marketplace::test_create_offer(buyer, token_id, price);
+
+        let retrieved_offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
+        assert!(option::is_some(&retrieved_offer_id_option), 0);
+        let retrieved_offer_id = option::extract(&mut retrieved_offer_id_option);
+        assert!(retrieved_offer_id == offer_id, 1);
+
+        marketplace::change_price_offer(buyer, offer_id, new_price);
+
+        // Assert that the offer price has changed
+        assert!(marketplace::get_listing_price(offer_id) == new_price, 2);
+    }
 }

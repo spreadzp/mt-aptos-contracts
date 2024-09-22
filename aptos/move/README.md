@@ -69,7 +69,7 @@ aptos move create-object-and-publish-package --address-name marketplace_addr --p
 aptos move upgrade-object-package --object-address 0xd348822abc4c50a68be8be6382f1883deeb365bf54367791ab9ed584f67b9cc6 --named-addresses marketplace_addr=0xd348822abc4c50a68be8be6382f1883deeb365bf54367791ab9ed584f67b9cc6 --profile default --assume-yes
 
 // in move folder
-aptos move create-object-and-publish-package --address-name marketplace_addr,nft_addr --profile default --assume-yes
+aptos move create-object-and-publish-package --address-name marketplace_addr,nft_addr,airdrop_addr,mdtn_addr --profile default --assume-yes
 aptos move upgrade-object-package  --object-address 0xe3995d3baea60c08ea0ee2637e1031f4ca4c2a9b50cb79e70f1f8b981c912639  --profile default --assume-yes
 
 https://explorer.aptoslabs.com/txn/0x226ded1328a30f685955a090ece0126b6de3bac8f2199c6713e41301984aa0c9?network=testnet
@@ -101,11 +101,12 @@ Run Move scripts. Move scripts are off-chain Move functions that let you call mu
 
 
 in move folder 
-aptos move create-object-and-publish-package --address-name marketplace_addr --profile default --assume-yes 
+aptos move create-object-and-publish-package --address-name marketplace_addr --profile default --assume-yes  
 aptos move publish --package-dir move/sources --profile default --assume-yes
 aptos move publish --package-dir move/sources --profile default --dev
-aptos move publish --package-dir sources --named-addresses marketplace_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,nft_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a --profile default --assume-yes
+aptos move publish --package-dir sources --named-addresses marketplace_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,nft_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,mdtn_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,airdrop_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a --profile default --assume-yes
 aptos move upgrade-object-package  --object-address 0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a  --profile default --assume-yes
+MVC_BLOCK_V1=1 aptos move test --move-2 --named-addresses 
 ```
 0xfc85aa988050c0bb1abb7e84171d16674d6e5c69b1687f00c9ce078615df9f4a
 https://explorer.aptoslabs.com/txn/0x25a51d28634b5d1974f3f44f260d25d46b26498bbac711b56ff58650520582a4?network=testnet
@@ -122,4 +123,10 @@ https://aptoscan.com/module/0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060c
 
 0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a::nft::NFT
 
+
+Transaction submitted: https://explorer.aptoslabs.com/txn/0xd2b50da8eeda2c0b0cdfe1dc127ffe0fc1d82721a996d9204c4c933c117e95d9?network=testnet
+Code was successfully deployed to object address 0xd56e140edf53dd279925eeee8896c36386e3433af5262f443f0c017989e6f5a3
+into block explorer click to =>
+https://aptoscan.com/module/0xd56e140edf53dd279925eeee8896c36386e3433af5262f443f0c017989e6f5a3/marketplace?network=testnet
+https://aptoscan.com/module/0xd56e140edf53dd279925eeee8896c36386e3433af5262f443f0c017989e6f5a3/nft?network=testnet
 
