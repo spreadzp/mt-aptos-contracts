@@ -1,13 +1,13 @@
 module marketplace_addr::marketplace {
     use std::error;
     use std::signer;
-    use std::option;  
+    use std::option;
     use aptos_framework::coin::{Self};
     use aptos_framework::object::{Self, Object};
-    use nft_addr::nft; 
+    use nft_addr::nft;
     use std::string::String;
     use std::vector;
-    use std::table::{Self, Table}; 
+    use std::table::{Self, Table};
     use aptos_framework::aptos_account;
     use aptos_framework::aptos_coin::AptosCoin;
 
@@ -28,12 +28,12 @@ module marketplace_addr::marketplace {
     const STATUS_CANCELLED: u8 = 3;
 
     struct MarketplaceSigner has key {
-        extend_ref: object::ExtendRef,
+        extend_ref: object::ExtendRef
     }
 
     struct Sellers has key {
         addresses: vector<address>
-    } 
+    }
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     struct ListingWithPrice has key, drop {
@@ -42,8 +42,8 @@ module marketplace_addr::marketplace {
         delete_ref: object::DeleteRef,
         extend_ref: object::ExtendRef,
         price: u64,
-        transfer_ref: object::TransferRef, 
-        listing_event: ListingEvent,
+        transfer_ref: object::TransferRef,
+        listing_event: ListingEvent
     }
 
     #[event]
@@ -51,22 +51,22 @@ module marketplace_addr::marketplace {
         nft_id: address,
         price: u64,
         listing_addr: address,
-        status: u8,
+        status: u8
     }
 
     struct SellerListings has key, store {
-        listings: vector<address>,
+        listings: vector<address>
     }
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     struct ListingAddressMap has key {
-        map: Table<String, address>,
+        map: Table<String, address>
     }
 
     struct ListingInfo has copy, drop, store {
         object_address: address,
         seller: address,
-        price: u64,
+        price: u64
     }
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
@@ -74,22 +74,19 @@ module marketplace_addr::marketplace {
         object: object::Object<object::ObjectCore>,
         buyer: address,
         price: u64,
-        transfer_ref: object::TransferRef, 
+        transfer_ref: object::TransferRef
     }
 
     fun init_module(deployer: &signer) {
         let constructor_ref = object::create_named_object(
-            deployer,
-            APP_OBJECT_SEED,
+            deployer, APP_OBJECT_SEED
         );
         let extend_ref = object::generate_extend_ref(&constructor_ref);
         let marketplace_signer = &object::generate_signer(&constructor_ref);
 
-        move_to(marketplace_signer, MarketplaceSigner {
-            extend_ref,
-        });
+        move_to(marketplace_signer, MarketplaceSigner { extend_ref });
 
-        move_to(marketplace_signer, Sellers { addresses: vector::empty() }); 
+        move_to(marketplace_signer, Sellers { addresses: vector::empty() });
     }
 
     fun init_listing_addr_map() acquires MarketplaceSigner {
@@ -101,51 +98,59 @@ module marketplace_addr::marketplace {
     public entry fun list_nft_with_fixed_price(
         seller: &signer,
         nft_id: address,
-        price: u64,
+        price: u64
     ) acquires SellerListings, MarketplaceSigner, ListingAddressMap {
-        let nft_object = object::address_to_object<nft::NFT>(nft_id); 
+        let nft_object = object::address_to_object<nft::NFT>(nft_id);
         assert!(price > 0, error::permission_denied(ZERO_PRICE));
-        assert!(nft::get_owner_by_id(nft_id) == signer::address_of(seller), error::permission_denied(ENO_SELLER));
+        assert!(
+            nft::get_owner_by_id(nft_id) == signer::address_of(seller),
+            error::permission_denied(ENO_SELLER)
+        );
         list_with_fixed_price_internal(seller, object::convert(nft_object), price);
     }
 
     public(friend) fun list_with_fixed_price_internal(
         seller: &signer,
         object: Object<object::ObjectCore>,
-        price: u64,        
+        price: u64
     ) acquires SellerListings, MarketplaceSigner, ListingAddressMap {
         init_listing_addr_map();
 
         let constructor_ref = object::create_object(signer::address_of(seller));
-        let listing_addr = object::object_address(&object); 
+        let listing_addr = object::object_address(&object);
         let listing_event = ListingEvent {
             nft_id: object::object_address(&object),
             price,
             listing_addr,
-            status: STATUS_CREATED,
+            status: STATUS_CREATED
         };
         let listing_with_price = ListingWithPrice {
             object,
             seller: signer::address_of(seller),
             delete_ref: object::generate_delete_ref(&constructor_ref),
             extend_ref: object::generate_extend_ref(&constructor_ref),
-            price, 
+            price,
             transfer_ref: object::generate_transfer_ref(&constructor_ref),
-            listing_event,
-        };        
-
-        let listing_signer = object::generate_signer_for_extending(&listing_with_price.extend_ref); 
-        move_to(seller, listing_with_price);
-        object::transfer(seller, object, signer::address_of(&listing_signer)); 
-
-        if (!exists<SellerListings>(signer::address_of(seller))) {            
-            move_to(seller, SellerListings {
-                listings: vector::empty<address>(),
-            });
+            listing_event
         };
 
-        let seller_listings = borrow_global_mut<SellerListings>(signer::address_of(seller)); 
-        vector::push_back(&mut seller_listings.listings, listing_addr); 
+        let listing_signer =
+            object::generate_signer_for_extending(&listing_with_price.extend_ref);
+        move_to(seller, listing_with_price);
+        object::transfer(seller, object, signer::address_of(&listing_signer));
+
+        if (!exists<SellerListings>(signer::address_of(seller))) {
+            move_to(
+                seller,
+                SellerListings {
+                    listings: vector::empty<address>()
+                }
+            );
+        };
+
+        let seller_listings =
+            borrow_global_mut<SellerListings>(signer::address_of(seller));
+        vector::push_back(&mut seller_listings.listings, listing_addr);
 
         let seller_addr = signer::address_of(seller);
         if (!exists<ListingAddressMap>(seller_addr)) {
@@ -161,11 +166,11 @@ module marketplace_addr::marketplace {
 
     public fun exists_listing(listing_id: address): bool {
         exists<ListingWithPrice>(listing_id)
-    } 
+    }
 
     #[view]
     public fun price(
-        object: object::Object<ListingWithPrice>,
+        object: object::Object<ListingWithPrice>
     ): option::Option<u64> acquires ListingWithPrice {
         let listing_addr = object::object_address(&object);
         if (exists<ListingWithPrice>(listing_addr)) {
@@ -180,11 +185,13 @@ module marketplace_addr::marketplace {
     public fun listing(listing_addr: address): option::Option<ListingInfo> acquires ListingWithPrice {
         if (exists<ListingWithPrice>(listing_addr)) {
             let listing_with_price = borrow_global<ListingWithPrice>(listing_addr);
-            option::some(ListingInfo {
-                object_address: object::object_address(&listing_with_price.object),
-                seller: listing_with_price.seller,
-                price: listing_with_price.price,
-            })
+            option::some(
+                ListingInfo {
+                    object_address: object::object_address(&listing_with_price.object),
+                    seller: listing_with_price.seller,
+                    price: listing_with_price.price
+                }
+            )
         } else {
             option::none()
         }
@@ -205,9 +212,11 @@ module marketplace_addr::marketplace {
 
     #[view]
     public fun get_sellers(): vector<address> acquires Sellers {
-        assert!(exists<Sellers>(get_marketplace_signer_addr()), error::not_found(ENO_SELLER));
+        assert!(
+            exists<Sellers>(get_marketplace_signer_addr()), error::not_found(ENO_SELLER)
+        );
         borrow_global<Sellers>(get_marketplace_signer_addr()).addresses
-    } 
+    }
 
     #[view]
     public fun get_sellers_count(): u64 acquires Sellers {
@@ -220,15 +229,17 @@ module marketplace_addr::marketplace {
 
     #[view]
     public fun get_seller_at(index: u64): address acquires Sellers {
-        assert!(exists<Sellers>(get_marketplace_signer_addr()), error::not_found(ENO_SELLER));
+        assert!(
+            exists<Sellers>(get_marketplace_signer_addr()), error::not_found(ENO_SELLER)
+        );
         let sellers = borrow_global<Sellers>(get_marketplace_signer_addr());
         *vector::borrow(&sellers.addresses, index)
     }
 
     #[view]
     public fun get_nft_listing(nft_id: address): address acquires ListingAddressMap {
-        let seller = nft::get_owner_by_id(nft_id); 
-        let metadata_hash = nft::get_metadata_hash_by_id(nft_id); 
+        let seller = nft::get_owner_by_id(nft_id);
+        let metadata_hash = nft::get_metadata_hash_by_id(nft_id);
         assert!(exists<ListingAddressMap>(seller), error::not_found(ENO_LISTING));
         let listing_map = borrow_global<ListingAddressMap>(seller);
         *table::borrow(&listing_map.map, metadata_hash)
@@ -250,10 +261,12 @@ module marketplace_addr::marketplace {
     public fun get_listing_price(listing_addr: address): u64 acquires ListingWithPrice {
         let listing_with_price = borrow_global<ListingWithPrice>(listing_addr);
         listing_with_price.price
-    } 
+    }
 
     #[view]
-    public fun get_offer_id_by_nft_id(nft_id: address): option::Option<address> acquires ListingAddressMap {
+    public fun get_offer_id_by_nft_id(
+        nft_id: address
+    ): option::Option<address> acquires ListingAddressMap {
         let seller = nft::get_owner_by_id(nft_id);
         let metadata_hash = nft::get_metadata_hash_by_id(nft_id);
         if (exists<ListingAddressMap>(seller)) {
@@ -278,7 +291,9 @@ module marketplace_addr::marketplace {
     }
 
     public fun get_marketplace_signer(): signer acquires MarketplaceSigner {
-        object::generate_signer_for_extending(&borrow_global<MarketplaceSigner>(get_marketplace_signer_addr()).extend_ref)
+        object::generate_signer_for_extending(
+            &borrow_global<MarketplaceSigner>(get_marketplace_signer_addr()).extend_ref
+        )
     }
 
     #[test_only]
@@ -287,9 +302,9 @@ module marketplace_addr::marketplace {
         ListingInfo {
             object_address: object::object_address(&listing_with_price.object),
             seller: listing_with_price.seller,
-            price: listing_with_price.price,
+            price: listing_with_price.price
         }
-    } 
+    }
 
     #[test_only]
     public fun get_listing_with_price(owner: address): ListingWithPrice acquires ListingWithPrice {
@@ -297,12 +312,14 @@ module marketplace_addr::marketplace {
     }
 
     #[test_only]
-    public fun get_listing_info_by_address(listing_addr: address): ListingInfo acquires ListingWithPrice {
+    public fun get_listing_info_by_address(
+        listing_addr: address
+    ): ListingInfo acquires ListingWithPrice {
         let listing_with_price = move_from<ListingWithPrice>(listing_addr);
         let result = ListingInfo {
             object_address: object::object_address(&listing_with_price.object),
             seller: listing_with_price.seller,
-            price: listing_with_price.price,
+            price: listing_with_price.price
         };
         result
     }
@@ -311,8 +328,6 @@ module marketplace_addr::marketplace {
     public fun get_listing_info_fields(listing_info: &ListingInfo): (address, address, u64) {
         (listing_info.object_address, listing_info.seller, listing_info.price)
     }
-
-    
 
     // Helper function to get listing address map
     #[test_only]
@@ -324,43 +339,52 @@ module marketplace_addr::marketplace {
     }
 
     public entry fun claim_offer_by_owner_nft(
-            owner: &signer,
-            offer_id: address,
-        ) acquires Offer, ListingWithPrice {
-            let offer = borrow_global<Offer>(offer_id);
-            assert!(offer.buyer == signer::address_of(owner), error::permission_denied(ENOT_AUTHORIZED));
+        owner: &signer, offer_id: address
+    ) acquires Offer, ListingWithPrice {
+        let offer = borrow_global<Offer>(offer_id);
+        assert!(
+            offer.buyer == signer::address_of(owner),
+            error::permission_denied(ENOT_AUTHORIZED)
+        );
 
-            let listing_addr = object::object_address(&offer.object);
-            let listing_with_price = borrow_global_mut<ListingWithPrice>(listing_addr);
-            assert!(listing_with_price.seller == signer::address_of(owner), error::permission_denied(ENOT_AUTHORIZED));
+        let listing_addr = object::object_address(&offer.object);
+        let listing_with_price = borrow_global_mut<ListingWithPrice>(listing_addr);
+        assert!(
+            listing_with_price.seller == signer::address_of(owner),
+            error::permission_denied(ENOT_AUTHORIZED)
+        );
 
-            // Transfer the NFT to the buyer
-            let obj = object::address_to_object<Offer>(listing_addr);
-            object::transfer(owner, obj, offer.buyer);
+        // Transfer the NFT to the buyer
+        let obj = object::address_to_object<Offer>(listing_addr);
+        object::transfer(owner, obj, offer.buyer);
 
-            // Update the status of the listing
-            listing_with_price.listing_event.status = STATUS_ACCEPTED;
+        // Update the status of the listing
+        listing_with_price.listing_event.status = STATUS_ACCEPTED;
 
-            // Emit the event
-            0x1::event::emit(listing_with_price.listing_event);
+        // Emit the event
+        0x1::event::emit(listing_with_price.listing_event);
 
-            // Remove the offer
-            move_from<Offer>(offer_id);
+        // Remove the offer
+        move_from<Offer>(offer_id);
     }
 
     public entry fun accept_offer(
         buyer: &signer,
         seller: address,
-        offer_id: address,
+        offer_id: address
     ) acquires Offer, ListingWithPrice {
         let offer = borrow_global<Offer>(offer_id);
         let listing_addr = object::object_address(&offer.object);
         let listing_with_price = borrow_global_mut<ListingWithPrice>(listing_addr);
 
         //assert!(listing_with_price.seller == signer::address_of(seller), error::permission_denied(ENOT_AUTHORIZED));
-        assert!(coin::balance<AptosCoin>(offer.buyer) >= offer.price, error::invalid_argument(EINSUFFICIENT_BID_AMOUNT));
+        assert!(
+            coin::balance<AptosCoin>(offer.buyer) >= offer.price,
+            error::invalid_argument(EINSUFFICIENT_BID_AMOUNT)
+        );
 
-        let obj_signer = object::generate_signer_for_extending(&listing_with_price.extend_ref);
+        let obj_signer =
+            object::generate_signer_for_extending(&listing_with_price.extend_ref);
         let obj = object::address_to_object<Offer>(listing_addr);
         object::transfer(&obj_signer, obj, signer::address_of(buyer));
         // Transfer the NFT to the buyer
@@ -382,12 +406,12 @@ module marketplace_addr::marketplace {
         move_from<ListingWithPrice>(listing_addr);
     }
 
-    public entry fun close_offer(
-        owner: &signer,
-        offer_id: address,
-    ) acquires Offer, ListingWithPrice {
+    public entry fun close_offer(owner: &signer, offer_id: address) acquires Offer, ListingWithPrice {
         let offer = borrow_global<Offer>(offer_id);
-        assert!(offer.buyer == signer::address_of(owner), error::permission_denied(ENOT_AUTHORIZED));
+        assert!(
+            offer.buyer == signer::address_of(owner),
+            error::permission_denied(ENOT_AUTHORIZED)
+        );
 
         let listing_addr = object::object_address(&offer.object);
         let listing_with_price = borrow_global_mut<ListingWithPrice>(listing_addr);
@@ -405,10 +429,13 @@ module marketplace_addr::marketplace {
     public entry fun change_price_offer(
         owner: &signer,
         offer_id: address,
-        new_price: u64,
+        new_price: u64
     ) acquires Offer, ListingWithPrice {
         let offer = borrow_global_mut<Offer>(offer_id);
-        assert!(offer.buyer == signer::address_of(owner), error::permission_denied(ENOT_AUTHORIZED));
+        assert!(
+            offer.buyer == signer::address_of(owner),
+            error::permission_denied(ENOT_AUTHORIZED)
+        );
         assert!(new_price > 0, error::invalid_argument(ZERO_PRICE));
 
         let listing_addr = object::object_address(&offer.object);
@@ -433,18 +460,19 @@ module marketplace_addr::marketplace {
             nft_id: @0x123,
             price: 1000,
             listing_addr: @0x456,
-            status: STATUS_CREATED,
+            status: STATUS_CREATED
         };
         vector::push_back(&mut events, sample_event);
         events
     }
 
     #[test_only]
-    public fun test_create_offer(buyer: &signer, nft_id: address, price: u64): address acquires ListingAddressMap {
+    public fun test_create_offer(
+        buyer: &signer, nft_id: address, price: u64
+    ): address acquires ListingAddressMap {
         let offer_id_option = get_offer_id_by_nft_id(nft_id);
         assert!(option::is_some(&offer_id_option), 0);
         let offer_id = option::extract(&mut offer_id_option);
         offer_id
     }
-
 }

@@ -91,7 +91,7 @@ module mdtn_addr::mdtn {
         // This ensures all transfer will call the withdraw function in this module and impose a tax.
         let withdraw = function_info::new_function_info(
             deployer,
-            string::utf8(b"taxed_fa"),
+            string::utf8(b"mdtn"),
             string::utf8(b"withdraw"),
         );
         dispatchable_fungible_asset::register_dispatch_functions(

@@ -104,12 +104,13 @@ module marketplace_addr::test_marketplace {
         marketplace::list_nft_with_fixed_price(creator, token_id, price_for_sell);
 
         let listing_addr = marketplace::get_nft_listing(token_id);
-        let listing_info = marketplace::get_listing_info(listing_addr);
-
+        let listing_info = marketplace::get_listing_info(signer::address_of(creator));
+        debug::print(&listing_info);
         // Assert that the listing is valid
-        // assert!(listing_info.object_address == token_id, 1);
-        // assert!(listing_info.seller == signer::address_of(creator), 2);
-        // assert!(listing_info.price == price_for_sell, 3);
+        let (object_address, seller, price ) = marketplace::get_listing_info_fields(&listing_info);
+        assert!(object_address == token_id, 1);
+        assert!(seller == signer::address_of(creator), 2);
+        assert!(price == price_for_sell, 3);
     }
 
 
@@ -246,7 +247,7 @@ module marketplace_addr::test_marketplace {
         let offer_id_option = marketplace::get_offer_id_by_nft_id(token_id);
         assert!(option::is_some(&offer_id_option), 0);
         let offer_id = option::extract(&mut offer_id_option);
-
+        debug::print(&offer_id);
         // No funds are minted to the buyer's account to simulate insufficient funds
         marketplace::accept_offer(buyer, signer::address_of(seller), offer_id);
     }

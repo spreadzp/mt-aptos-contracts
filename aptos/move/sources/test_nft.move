@@ -36,7 +36,9 @@ module nft_addr::test_nft {
 
     // Test transferring an NFT
     #[test(creator = @0x1, recipient = @0x2)]
-    public entry fun test_transfer_nft(creator: &signer, recipient: &signer) {
+    public entry fun test_transfer_nft(
+        creator: &signer, recipient: &signer
+    ) {
         let creator_addr = signer::address_of(creator);
         let recipient_addr = signer::address_of(recipient);
         account::create_account_for_test(creator_addr);
@@ -55,7 +57,12 @@ module nft_addr::test_nft {
         assert!(object::owner(object) == new_owner, 0);
 
         // Get the NFT data by hash and unpack the tuple
-        let (creator_addr_from_data, owner_from_data, metadata_hash_from_data, nft_id_from_data) = nft::get_nft_data_by_hash(metadata, creator_addr);
+        let (
+            creator_addr_from_data,
+            owner_from_data,
+            metadata_hash_from_data,
+            nft_id_from_data
+        ) = nft::get_nft_data_by_hash(metadata, creator_addr);
         assert!(recipient_addr == owner_from_data, 0);
     }
 

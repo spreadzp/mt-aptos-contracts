@@ -105,7 +105,7 @@ aptos move create-object-and-publish-package --address-name marketplace_addr --p
 aptos move publish --package-dir move/sources --profile default --assume-yes
 aptos move publish --package-dir move/sources --profile default --dev
 aptos move publish --package-dir sources --named-addresses marketplace_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,nft_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,mdtn_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,airdrop_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a --profile default --assume-yes
-aptos move upgrade-object-package  --object-address 0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a  --profile default --assume-yes
+aptos move upgrade-object-package  --object-address 0x77a3037cec05236afc07574d5b8b0df53a47ddd232d0c19874a75274a12d59a  --profile default --assume-yes
 MVC_BLOCK_V1=1 aptos move test --move-2 --named-addresses 
 ```
 0xfc85aa988050c0bb1abb7e84171d16674d6e5c69b1687f00c9ce078615df9f4a
@@ -130,3 +130,21 @@ into block explorer click to =>
 https://aptoscan.com/module/0xd56e140edf53dd279925eeee8896c36386e3433af5262f443f0c017989e6f5a3/marketplace?network=testnet
 https://aptoscan.com/module/0xd56e140edf53dd279925eeee8896c36386e3433af5262f443f0c017989e6f5a3/nft?network=testnet
 
+
+Transaction submitted: https://explorer.aptoslabs.com/txn/0xc78fbfb194c45c4142274fc2c94ef1e797d67ccbae10ba6ecd4f904ac05bf323?network=testnet
+Code was successfully deployed to object address 0x21a9594de56c33b3833f6800fd4df105b527e758096c22484f82c58d49425d38
+
+
+aptos move create-object-and-publish-package --address-name reward_addr --profile default --assume-yes
+
+aptos move publish --package-dir sources --named-addresses reward_addr=0x40532d1df29fa81426e4b65c01354329ac28d80d0238773ec24d45989e929f2e --profile default --assume-yes
+
+Transaction submitted: https://explorer.aptoslabs.com/txn/0xfb65aebd4797bcec1f841726d4e5bb6a0f6ff234543a337e77c38f30a0c94c43?network=testnet
+Code was successfully deployed to object address 0x40532d1df29fa81426e4b65c01354329ac28d80d0238773ec24d45989e929f2e
+
+
+Transaction submitted: https://explorer.aptoslabs.com/txn/0xd01a6acd1e0081d8c9874f0ada2d0957d8f99606a8524352bca229f14d2b77c8?network=testnet
+Code was successfully deployed to object address 0xf0964afa7445e9c23e671f5924374452ed49a078d2f4c3e6f8f47e1fbea3c115
+
+Transaction submitted: https://explorer.aptoslabs.com/txn/0xf2e46881c79b9e538e626de45dafe2d835cc4d5975faf90c71b25605ca94f644?network=testnet
+Code was successfully deployed to object address 0x077a3037cec05236afc07574d5b8b0df53a47ddd232d0c19874a75274a12d59a

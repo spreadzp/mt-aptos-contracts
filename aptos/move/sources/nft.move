@@ -4,8 +4,8 @@ module nft_addr::nft {
     use std::string::{String, bytes};
     use aptos_framework::object;
     use aptos_framework::event;
-    use aptos_framework::table::{Self, Table}; 
-    
+    use aptos_framework::table::{Self, Table};
+
     const ENOT_AUTHORIZED: u64 = 1;
     const ENOT_OWNER: u64 = 2;
     const ENOT_FOUND: u64 = 3;
@@ -15,26 +15,30 @@ module nft_addr::nft {
         owner: address,
         metadata_hash: String,
         nft_id: address,
-        events: NFTEventHandlers,
+        events: NFTEventHandlers
     }
 
     struct NFTEventHandlers has store {
-        transfer_events: event::EventHandle<TransferEvent>,
+        transfer_events: event::EventHandle<TransferEvent>
     }
 
     struct TransferEvent has store, drop {
         from: address,
         to: address,
-        token_id: address,
+        token_id: address
     }
 
     struct MetadataMap has key {
-        map: Table<String, address>,  // Storing NFT ID (address) by metadata hash
+        map: Table<String, address> // Storing NFT ID (address) by metadata hash
     }
 
-    public entry fun initialize_nft(creator: &signer, metadata_hash: String) acquires MetadataMap {
+    public entry fun initialize_nft(
+        creator: &signer, metadata_hash: String
+    ) acquires MetadataMap {
         if (!exists<MetadataMap>(signer::address_of(creator))) {
-            move_to(creator, MetadataMap { map: table::new<String, address>() });
+            move_to(creator, MetadataMap {
+                map: table::new<String, address>()
+            });
         };
 
         let seed_vector = *bytes(&metadata_hash);
@@ -48,8 +52,8 @@ module nft_addr::nft {
             metadata_hash,
             nft_id,
             events: NFTEventHandlers {
-                transfer_events: object::new_event_handle<TransferEvent>(&nft_signer),
-            },
+                transfer_events: object::new_event_handle<TransferEvent>(&nft_signer)
+            }
         };
 
         move_to(&nft_signer, nft);
@@ -58,8 +62,10 @@ module nft_addr::nft {
         table::add(&mut metadata_map.map, metadata_hash, nft_id);
     }
 
-    public entry fun transfer(from: &signer, to: address, token_id: address) acquires NFT {
-        let nft = borrow_global_mut<NFT>(token_id); 
+    public entry fun transfer(
+        from: &signer, to: address, token_id: address
+    ) acquires NFT {
+        let nft = borrow_global_mut<NFT>(token_id);
         let sa = signer::address_of(from);
         // debug::print(&string::utf8(b"65 nft.move"));
         // debug::print(&nft.owner);
@@ -68,16 +74,15 @@ module nft_addr::nft {
         let equal = nft.owner == sa;
         //debug::print(&equal);
         assert!(equal, error::permission_denied(ENOT_AUTHORIZED));
-        
+
         nft.owner = to;
-        
+
         let object = object::address_to_object<NFT>(token_id);
         object::transfer(from, object, to);
-        event::emit_event(&mut nft.events.transfer_events, TransferEvent {
-            from: signer::address_of(from),
-            to,
-            token_id,
-        });
+        event::emit_event(
+            &mut nft.events.transfer_events,
+            TransferEvent { from: signer::address_of(from), to, token_id }
+        );
     }
 
     #[view]
@@ -87,7 +92,9 @@ module nft_addr::nft {
     }
 
     #[view]
-    public fun get_owner_by_hash(metadata_hash: String, creator_address: address): address acquires MetadataMap, NFT {
+    public fun get_owner_by_hash(
+        metadata_hash: String, creator_address: address
+    ): address acquires MetadataMap, NFT {
         let nft_id = get_nft_id_by_hash(metadata_hash, creator_address);
         let nft = borrow_global<NFT>(nft_id);
         nft.owner
@@ -100,21 +107,27 @@ module nft_addr::nft {
     }
 
     #[view]
-    public fun get_creator_by_hash(metadata_hash: String, creator_address: address): address acquires MetadataMap, NFT {
+    public fun get_creator_by_hash(
+        metadata_hash: String, creator_address: address
+    ): address acquires MetadataMap, NFT {
         let nft_id = get_nft_id_by_hash(metadata_hash, creator_address);
         let nft = borrow_global<NFT>(nft_id);
         nft.creator
     }
 
     #[view]
-    public fun get_nft_data_by_hash(metadata_hash: String, creator_address: address): (address, address, String, address) acquires MetadataMap, NFT {
+    public fun get_nft_data_by_hash(
+        metadata_hash: String, creator_address: address
+    ): (address, address, String, address) acquires MetadataMap, NFT {
         let nft_id = get_nft_id_by_hash(metadata_hash, creator_address);
         let nft = borrow_global<NFT>(nft_id);
         (nft.creator, nft.owner, nft.metadata_hash, nft.nft_id)
     }
 
     #[view]
-    public fun get_nft_id_by_hash(metadata_hash: String, creator_address: address): address acquires MetadataMap {
+    public fun get_nft_id_by_hash(
+        metadata_hash: String, creator_address: address
+    ): address acquires MetadataMap {
         let metadata_map = borrow_global<MetadataMap>(creator_address);
         if (!table::contains(&metadata_map.map, metadata_hash)) {
             abort error::not_found(ENOT_FOUND)
@@ -129,13 +142,17 @@ module nft_addr::nft {
     }
 
     #[test_only]
-    public fun test_initialize_nft(creator: &signer, metadata_hash: String): address acquires MetadataMap {
+    public fun test_initialize_nft(
+        creator: &signer, metadata_hash: String
+    ): address acquires MetadataMap {
         initialize_nft(creator, metadata_hash);
         get_nft_id_by_hash(metadata_hash, signer::address_of(creator))
     }
 
     #[test_only]
-    public fun test_transfer(from: &signer, to: address, token_id: address) acquires NFT {
+    public fun test_transfer(
+        from: &signer, to: address, token_id: address
+    ) acquires NFT {
         transfer(from, to, token_id);
     }
 }

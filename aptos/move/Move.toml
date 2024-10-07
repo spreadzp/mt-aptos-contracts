@@ -4,21 +4,21 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-marketplace_addr = "0x21a9594de56c33b3833f6800fd4df105b527e758096c22484f82c58d49425d38"
-nft_addr = "0x21a9594de56c33b3833f6800fd4df105b527e758096c22484f82c58d49425d38"
-mdtn_addr = "0x21a9594de56c33b3833f6800fd4df105b527e758096c22484f82c58d49425d38"
-airdrop_addr = "0x21a9594de56c33b3833f6800fd4df105b527e758096c22484f82c58d49425d38"
+mdtn_addr = "_"
+marketplace_addr = "_"
+nft_addr = "_"
+reward_addr = "_"
 
 [dev-addresses]
-marketplace_addr = "0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a"
-nft_addr = "0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9b"
-mdtn_addr = "0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9c"
-airdrop_addr = "0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9d"
+marketplace_addr = "0x9a"
+nft_addr = "0x9b"
+mdtn_addr = "0xa11ce"
+reward_addr = "0x9d"
 
 [dependencies]
-AptosFramework = {git = "https://github.com/aptos-labs/aptos-core.git", rev = "mainnet", subdir = "aptos-move/framework/aptos-framework"}
-AptosTokenObjects = { git = "https://github.com/aptos-labs/aptos-core.git", rev = "mainnet", subdir = "aptos-move/framework/aptos-token-objects"} 
-MoveStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/move-stdlib", rev = "mainnet" }
-AptosToken = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-token/", rev = "mainnet" }
+AptosFramework = {git = "https://github.com/aptos-labs/aptos-core.git", rev = "main", subdir = "aptos-move/framework/aptos-framework"}
+AptosTokenObjects = { git = "https://github.com/aptos-labs/aptos-core.git", rev = "main", subdir = "aptos-move/framework/aptos-token-objects"} 
+MoveStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/move-stdlib", rev = "main" }
+AptosToken = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-token/", rev = "main" }
 
  

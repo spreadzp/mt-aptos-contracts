@@ -1,139 +1,242 @@
 module mdtn_addr::mdtn {
+    use aptos_framework::object::{Self, Object, ExtendRef};
+    use aptos_framework::fungible_asset::{
+        Self,
+        MintRef,
+        TransferRef,
+        BurnRef,
+        Metadata,
+        FungibleStore,
+        FungibleAsset,
+    };
+    use aptos_framework::primary_fungible_store;
+    use aptos_framework::dispatchable_fungible_asset;
+    use aptos_framework::function_info::{Self, FunctionInfo};
     use std::signer;
-    use aptos_framework::coin::{Self, MintCapability, BurnCapability, FreezeCapability};
-    use std::string::{String};
-    use std::option::Option;
+    use std::option;
     use std::event;
+    use std::string::{Self, utf8};
+    use std::vector;
 
-    /// Struct representing the MDTN coin
-    struct MDTN has key {}
+    /* Errors */
+    const EUNAUTHORIZED: u64 = 1;
+    const ELOW_AMOUNT: u64 = 2;
+    const ENOT_ADMIN: u64 = 3;
+    const EROLE_EXISTS: u64 = 4;
+    const EROLE_DOESNT_EXIST: u64 = 5;
 
-    /// Struct to store the admin's address and mint capabilities
-    struct AdminConfig has key {
-        admin: address,
-        mint_cap: MintCapability<MDTN>,
-        freeze_cap: FreezeCapability<MDTN>,
-        burn_cap: BurnCapability<MDTN>,
+    /* Constants */
+    const ASSET_NAME: vector<u8> = b"Modern Talking Asset";
+    const ASSET_SYMBOL: vector<u8> = b"MDTN";
+    const TAX_RATE: u64 = 10;
+    const SCALE_FACTOR: u64 = 100;
+
+    /* Resources */
+    #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
+    struct Management has key {
+        extend_ref: ExtendRef,
+        mint_ref: MintRef,
+        burn_ref: BurnRef,
+        transfer_ref: TransferRef,
+        admins: vector<address>,
+        mint_roles: vector<address>,
+        burn_roles: vector<address>
     }
 
-    const ENOT_ADMIN: u64 = 1;
-    const EINSUFFICIENT_BALANCE: u64 = 2;
-
+    /* Events */
     #[event]
-    struct MintEvent has copy, store, drop {
-        amount: u64,
+    struct Mint has drop, store {
+        minter: address,
         to: address,
+        amount: u64
     }
 
     #[event]
-    struct BurnEvent has copy, store, drop {
-        amount: u64,
+    struct Burn has drop, store {
+        burner: address,
         from: address,
+        amount: u64
     }
 
     #[event]
-    struct TransferEvent has copy, store, drop {
-        amount: u64,
-        from: address,
-        to: address,
+    struct AdminAdded has drop, store {
+        new_admin: address
     }
 
     #[event]
-    struct WithdrawEvent has copy, store, drop {
-        amount: u64,
-        from: address,
+    struct RoleGranted has drop, store {
+        account: address,
+        role: vector<u8>
     }
 
-    /// Initialize the MDTN token and set the creator as the admin
-    public entry fun initialize(creator: &signer) {
-        let (burn_cap, freeze_cap, mint_cap) = coin::initialize<MDTN>(
-            creator,
-            std::string::utf8(b"Modern Talking"),
-            std::string::utf8(b"MDTN"),
-            8,
-            false
-        );
-        let admin = signer::address_of(creator);
-        move_to(creator, AdminConfig { admin, mint_cap, freeze_cap, burn_cap });
-    }
-
-    /// Function to change the admin, only callable by the current admin
-    public entry fun change_admin(current_admin: &signer, new_admin: address) acquires AdminConfig {
-        let config = borrow_global_mut<AdminConfig>(signer::address_of(current_admin));
-        assert!(signer::address_of(current_admin) == config.admin, ENOT_ADMIN);
-        config.admin = new_admin;
-    }
-
-    /// Public function to mint new tokens, only callable by the admin
-    public entry fun mint(admin: &signer, amount: u64) acquires AdminConfig {
-        let config = borrow_global<AdminConfig>(signer::address_of(admin));
-        assert!(signer::address_of(admin) == config.admin, ENOT_ADMIN);
-        let minted_coins = coin::mint<MDTN>(amount, &config.mint_cap);
-        coin::deposit(signer::address_of(admin), minted_coins);
-
-        event::emit(MintEvent { amount, to: signer::address_of(admin) });
-    }
-
-    /// Public function to burn tokens, only callable by the admin
-    public entry fun burn(admin: &signer, amount: u64) acquires AdminConfig {
-        let config = borrow_global<AdminConfig>(signer::address_of(admin));
-        assert!(signer::address_of(admin) == config.admin, ENOT_ADMIN);
-        let coins_to_burn = coin::withdraw<MDTN>(admin, amount);
-        coin::burn<MDTN>(coins_to_burn, &config.burn_cap);
-
-        event::emit(BurnEvent { amount, from: signer::address_of(admin) });
-    }
-
-    /// Public function to transfer MDTN from the admin to another address
-    public entry fun transfer(admin: &signer, to: address, amount: u64) acquires AdminConfig {
-        let config = borrow_global<AdminConfig>(signer::address_of(admin));
-        assert!(signer::address_of(admin) == config.admin, ENOT_ADMIN);
-
-        let admin_balance = coin::balance<MDTN>(signer::address_of(admin));
-        assert!(admin_balance >= amount, EINSUFFICIENT_BALANCE);
-
-        coin::transfer<MDTN>(admin, to, amount);
-
-        event::emit(TransferEvent { amount, from: signer::address_of(admin), to });
-    }
-
-    /// Public function to withdraw MDTN tokens to another address, callable by any account
-    public entry fun withdraw(account: &signer, to: address, amount: u64) {
-        let balance = coin::balance<MDTN>(signer::address_of(account));
-        assert!(balance >= amount, EINSUFFICIENT_BALANCE);
-
-        coin::transfer<MDTN>(account, to, amount);
-
-        event::emit(WithdrawEvent { amount, from: signer::address_of(account) });
-    }
-
-    // #[view]
-    // public entry fun register_account(account: &signer) {
-    //     coin::register<MDTN>(account);
-    // }
-
-    #[view]
-    public fun get_balance(addr: address): u64 {
-        coin::balance<MDTN>(addr)
-    }
-
-    #[view]
-    public fun metadata(): (String, String, u8, Option<u128>) {
-        let name = coin::name<MDTN>();
-        let symbol = coin::symbol<MDTN>();
-        let decimals = coin::decimals<MDTN>();
-        let supply = coin::supply<MDTN>();
-        (name, symbol, decimals, supply)
-    }
-
+    /* View Functions */
     #[view]
     public fun metadata_address(): address {
-        @mdtn_addr
+        object::create_object_address(&@mdtn_addr, ASSET_SYMBOL)
     }
 
     #[view]
-    public fun get_admin(): address acquires AdminConfig {
-        let config = borrow_global<AdminConfig>(@mdtn_addr);
-        config.admin
+    public fun metadata(): Object<Metadata> {
+        object::address_to_object(metadata_address())
+    }
+
+    #[view]
+    public fun deployer_store(): Object<FungibleStore> {
+        primary_fungible_store::ensure_primary_store_exists(@mdtn_addr, metadata())
+    }
+
+    #[view]
+    public fun is_admin(account: address): bool acquires Management {
+        let management = borrow_global<Management>(metadata_address());
+        vector::contains(&management.admins, &account)
+    }
+
+    /* Initialization */
+    fun init_module(deployer: &signer) {
+        let constructor_ref = &object::create_named_object(deployer, ASSET_SYMBOL);
+        
+        // Create fungible asset
+        primary_fungible_store::create_primary_store_enabled_fungible_asset(
+            constructor_ref,
+            option::none(),
+            utf8(ASSET_NAME),
+            utf8(ASSET_SYMBOL),
+            8,
+            utf8(b"https://example.com/icon.jpg"),
+            utf8(b"https://example.com/icon.jpg")
+        );
+
+        let metadata_object_signer = &object::generate_signer(constructor_ref);
+        let deployer_address = signer::address_of(deployer);
+
+        // Initialize management with deployer as initial admin
+        let initial_admins = vector::empty();
+        vector::push_back(&mut initial_admins, deployer_address);
+
+        move_to(
+            metadata_object_signer,
+            Management {
+                extend_ref: object::generate_extend_ref(constructor_ref),
+                mint_ref: fungible_asset::generate_mint_ref(constructor_ref),
+                burn_ref: fungible_asset::generate_burn_ref(constructor_ref),
+                transfer_ref: fungible_asset::generate_transfer_ref(constructor_ref),
+                admins: initial_admins,
+                mint_roles: vector::empty(),
+                burn_roles: vector::empty()
+            }
+        );
+
+        // Register withdraw function for tax handling
+        let withdraw_function = function_info::new_function_info(
+            deployer,
+            string::utf8(b"mdtn"),
+            string::utf8(b"withdraw")
+        );
+
+        dispatchable_fungible_asset::register_dispatch_functions(
+            constructor_ref,
+            option::some(withdraw_function),
+            option::none(),
+            option::none()
+        );
+    }
+
+    /* Admin Management */
+    public entry fun add_admin(admin: &signer, new_admin: address) acquires Management {
+        let management = borrow_global_mut<Management>(metadata_address());
+        assert!(vector::contains(&management.admins, &signer::address_of(admin)), ENOT_ADMIN);
+        assert!(!vector::contains(&management.admins, &new_admin), EROLE_EXISTS);
+        
+        vector::push_back(&mut management.admins, new_admin);
+        event::emit(AdminAdded { new_admin });
+    }
+
+    public entry fun grant_mint_role(admin: &signer, account: address) acquires Management {
+        let management = borrow_global_mut<Management>(metadata_address());
+        assert!(vector::contains(&management.admins, &signer::address_of(admin)), ENOT_ADMIN);
+        assert!(!vector::contains(&management.mint_roles, &account), EROLE_EXISTS);
+        
+        vector::push_back(&mut management.mint_roles, account);
+        event::emit(RoleGranted { account, role: b"mint" });
+    }
+
+    public entry fun grant_burn_role(admin: &signer, account: address) acquires Management {
+        let management = borrow_global_mut<Management>(metadata_address());
+        assert!(vector::contains(&management.admins, &signer::address_of(admin)), ENOT_ADMIN);
+        assert!(!vector::contains(&management.burn_roles, &account), EROLE_EXISTS);
+        
+        vector::push_back(&mut management.burn_roles, account);
+        event::emit(RoleGranted { account, role: b"burn" });
+    }
+
+    /* Asset Operations */
+    public fun withdraw(store: Object<FungibleStore>, amount: u64, transfer_ref: &TransferRef): FungibleAsset {
+        let tax = (amount * TAX_RATE) / SCALE_FACTOR;
+        let remaining_amount = amount - tax;
+
+        let tax_assets = fungible_asset::withdraw_with_ref(transfer_ref, store, tax);
+        fungible_asset::deposit_with_ref(transfer_ref, deployer_store(), tax_assets);
+
+        fungible_asset::withdraw_with_ref(transfer_ref, store, remaining_amount)
+    }
+
+    public entry fun mint(minter: &signer, to: address, amount: u64) acquires Management {
+        let management = borrow_global<Management>(metadata_address());
+        let minter_address = signer::address_of(minter);
+        
+        assert!(
+            vector::contains(&management.admins, &minter_address) || 
+            vector::contains(&management.mint_roles, &minter_address),
+            EUNAUTHORIZED
+        );
+
+        let assets = fungible_asset::mint(&management.mint_ref, amount);
+        let recipient_store = primary_fungible_store::ensure_primary_store_exists(to, metadata());
+        fungible_asset::deposit_with_ref(&management.transfer_ref, recipient_store, assets);
+
+        event::emit(Mint { minter: minter_address, to, amount });
+    }
+
+    public entry fun burn(burner: &signer, from: address, amount: u64) acquires Management {
+        let management = borrow_global<Management>(metadata_address());
+        let burner_address = signer::address_of(burner);
+        
+        assert!(
+            vector::contains(&management.admins, &burner_address) || 
+            vector::contains(&management.burn_roles, &burner_address),
+            EUNAUTHORIZED
+        );
+
+        let from_store = primary_fungible_store::ensure_primary_store_exists(from, metadata());
+        let assets = fungible_asset::withdraw_with_ref(&management.transfer_ref, from_store, amount);
+        fungible_asset::burn(&management.burn_ref, assets);
+
+        event::emit(Burn { burner: burner_address, from, amount });
+    }
+
+    public entry fun transfer(from: &signer, to: address, amount: u64) acquires Management {
+        let management = borrow_global<Management>(metadata_address());
+        let from_store = primary_fungible_store::ensure_primary_store_exists(
+            signer::address_of(from),
+            metadata()
+        );
+        let to_store = primary_fungible_store::ensure_primary_store_exists(to, metadata());
+        
+        let assets = withdraw(from_store, amount, &management.transfer_ref);
+        fungible_asset::deposit_with_ref(&management.transfer_ref, to_store, assets);
+    }
+
+    /* Helper Functions */
+    #[test_only]
+    public fun register_account(account: &signer) {
+        primary_fungible_store::ensure_primary_store_exists(
+            signer::address_of(account),
+            metadata()
+        );
+    }
+
+    #[test_only]
+    public fun init_for_test(deployer: &signer) {
+        init_module(deployer);
     }
 }
