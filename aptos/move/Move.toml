@@ -4,10 +4,10 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-mdtn_addr = "_"
-marketplace_addr = "_"
-nft_addr = "_"
-reward_addr = "_"
+mdtn_addr = "0x5ca31ff01f63eec6546cc122d0fd1e58e43cdcac29e5f72e0dd44543ead3119f"
+nft_addr = "0x5ca31ff01f63eec6546cc122d0fd1e58e43cdcac29e5f72e0dd44543ead3119f"
+marketplace_addr = "0x5ca31ff01f63eec6546cc122d0fd1e58e43cdcac29e5f72e0dd44543ead3119f"
+reward_addr = "0x5ca31ff01f63eec6546cc122d0fd1e58e43cdcac29e5f72e0dd44543ead3119f"
 
 [dev-addresses]
 marketplace_addr = "0x9a"

@@ -61,7 +61,7 @@ aptos move publish --package-dir move/sources --profile testnet-profile-1 --assu
 aptos move publish --package-dir move/sources --named-addresses marketplace_addr=0xd348822abc4c50a68be8be6382f1883deeb365bf54367791ab9ed584f67b9cc6,nft_addr=0xd348822abc4c50a68be8be6382f1883deeb365bf54367791ab9ed584f67b9cc6 --profile testnet-profile-1 --assume-yes
 aptos move upgrade-object-package --object-address 0xd348822abc4c50a68be8be6382f1883deeb365bf54367791ab9ed584f67b9cc6 --named-addresses marketplace_addr=0xd348822abc4c50a68be8be6382f1883deeb365bf54367791ab9ed584f67b9cc6 --dev --url 
 
-aptos move publish --package-dir sources --profile testnet-profile-1 --assume-yes
+aptos move publish  --profile testnet-profile-1 --assume-yes
 
 
 in folder move 
@@ -103,9 +103,9 @@ Run Move scripts. Move scripts are off-chain Move functions that let you call mu
 in move folder 
 aptos move create-object-and-publish-package --address-name marketplace_addr --profile default --assume-yes  
 aptos move publish --package-dir move/sources --profile default --assume-yes
-aptos move publish --package-dir move/sources --profile default --dev
+aptos move publish  --profile default --assume-yes
 aptos move publish --package-dir sources --named-addresses marketplace_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,nft_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,mdtn_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a,airdrop_addr=0x8ac0bf0166af96c7e79dcd6c879cd2a14290b78c6c0f1c060ce66152c4001d9a --profile default --assume-yes
-aptos move upgrade-object-package  --object-address 0x77a3037cec05236afc07574d5b8b0df53a47ddd232d0c19874a75274a12d59a  --profile default --assume-yes
+aptos move upgrade-object-package  --object-address 0x5ca31ff01f63eec6546cc122d0fd1e58e43cdcac29e5f72e0dd44543ead3119f  --profile default --assume-yes
 MVC_BLOCK_V1=1 aptos move test --move-2 --named-addresses 
 ```
 0xfc85aa988050c0bb1abb7e84171d16674d6e5c69b1687f00c9ce078615df9f4a
